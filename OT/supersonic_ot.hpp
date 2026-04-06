@@ -7,9 +7,9 @@ class SupersonicOT {
 public:
     SupersonicOT(NetContext& net);
 
-    awaitable<void> run_sender(__m128i m0, __m128i m1);
-    awaitable<__m128i> run_receiver(uint8_t choice);
-    awaitable<void> run_helper();
+    awaitable<void> run_sender(__m128i m0, __m128i m1, Role receiver_role = Role::P1, Role helper_role = Role::P2);
+    awaitable<__m128i> run_receiver(uint8_t choice, Role sender_role = Role::P0, Role helper_role = Role::P2);
+    awaitable<void> run_helper(Role sender_role = Role::P0, Role receiver_role = Role::P1);
 
 private:
     NetContext& net;
@@ -35,13 +35,13 @@ inline void controlled_swap(uint8_t b, __m128i& x, __m128i& y) {
 
 SupersonicOT::SupersonicOT(NetContext& n) : net(n) {}
 
-awaitable<void> SupersonicOT::run_sender(__m128i m0, __m128i m1) {
+awaitable<void> SupersonicOT::run_sender(__m128i m0, __m128i m1, Role receiver_role, Role helper_role) {
     // Phase 1: receive k0, k1 from Receiver
-    auto k0 = co_await net.peer(Role::P1).recv<__m128i>();
-    auto k1 = co_await net.peer(Role::P1).recv<__m128i>();
+    auto k0 = co_await net.peer(receiver_role).recv<__m128i>();
+    auto k1 = co_await net.peer(receiver_role).recv<__m128i>();
 
     // Phase 2: receive s1
-    uint8_t s1 = co_await net.peer(Role::P1).recv<uint8_t>();
+    uint8_t s1 = co_await net.peer(receiver_role).recv<uint8_t>();
 
     // Phase 3: encrypt
     __m128i e0 = leaf_xor(m0, k0);
@@ -50,47 +50,47 @@ awaitable<void> SupersonicOT::run_sender(__m128i m0, __m128i m1) {
     controlled_swap(s1, e0, e1);
 
     // send to Helper
-    co_await net.peer(Role::P2).send(e0);
-    co_await net.peer(Role::P2).send(e1);
+    co_await net.peer(helper_role).send(e0);
+    co_await net.peer(helper_role).send(e1);
 
     co_return;
 }
 
 
-awaitable<void> SupersonicOT::run_helper() {
+awaitable<void> SupersonicOT::run_helper(Role sender_role, Role receiver_role) {
     // receive s2 from Receiver
-    uint8_t s2 = co_await net.peer(Role::P1).recv<uint8_t>();
+    uint8_t s2 = co_await net.peer(receiver_role).recv<uint8_t>();
 
     // receive ciphertexts from Sender
-    auto e0 = co_await net.peer(Role::P0).recv<__m128i>();
-    auto e1 = co_await net.peer(Role::P0).recv<__m128i>();
+    auto e0 = co_await net.peer(sender_role).recv<__m128i>();
+    auto e1 = co_await net.peer(sender_role).recv<__m128i>();
 
     controlled_swap(s2, e0, e1);
 
     // forward only one ciphertext
-    co_await net.peer(Role::P1).send(e0);
+    co_await net.peer(receiver_role).send(e0);
 
     co_return;
 }
 
 
-awaitable<__m128i> SupersonicOT::run_receiver(uint8_t s) {
+awaitable<__m128i> SupersonicOT::run_receiver(uint8_t s, Role sender_role, Role helper_role) {
     // Phase 1: setup
     __m128i k0 = random_block();
     __m128i k1 = random_block();
 
-    co_await net.peer(Role::P0).send(k0);
-    co_await net.peer(Role::P0).send(k1);
+    co_await net.peer(sender_role).send(k0);
+    co_await net.peer(sender_role).send(k1);
 
     // Phase 2: split choice bit
     uint8_t s1 = random_bit();
     uint8_t s2 = s ^ s1;
 
-    co_await net.peer(Role::P0).send(s1);
-    co_await net.peer(Role::P2).send(s2);
+    co_await net.peer(sender_role).send(s1);
+    co_await net.peer(helper_role).send(s2);
 
     // Phase 4: receive filtered ciphertext
-    auto c = co_await net.peer(Role::P2).recv<__m128i>();
+    auto c = co_await net.peer(helper_role).recv<__m128i>();
 
     // Phase 5: decrypt
     __m128i ks = (s == 0 ? k0 : k1);

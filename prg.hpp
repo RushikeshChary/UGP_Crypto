@@ -1,5 +1,5 @@
 #pragma once
-#include "dpf/prg.h"
+#include "prg.h"
 #include <vector>
 #include <emmintrin.h>   // for __m128i, _mm_cvtsi128_si64, etc.
 #include <wmmintrin.h>   // for AES intrinsics
