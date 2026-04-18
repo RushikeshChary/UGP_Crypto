@@ -1,6 +1,6 @@
 #pragma once
-#include "../network.hpp"
-#include "../types.hpp"
+#include "../../network.hpp"
+#include "../../types.hpp"
 #include <random>
 
 class SupersonicOT {

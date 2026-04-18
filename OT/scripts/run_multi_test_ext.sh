@@ -4,7 +4,7 @@
 M=${1:-1024}
 
 # Compile
-g++ -std=gnu++20 -O2 -Wall -Wextra -pthread -mavx -mavx2 -maes ot_extension_test.cpp -o ot_extension_test -lboost_system
+g++ -std=gnu++20 -O2 -Wall -Wextra -pthread -mavx -mavx2 -maes tests/ot_extension_test.cpp -o ot_extension_test -lboost_system
 
 if [ $? -ne 0 ]; then
     echo "Compilation failed!"
@@ -12,18 +12,18 @@ if [ $? -ne 0 ]; then
 fi
 
 # Compile Verification Utility
-g++ -std=gnu++20 -O2 -Wall -Wextra verify_ot.cpp -o verify_ot
+g++ -std=gnu++20 -O2 -Wall -Wextra src/verify_ot.cpp -o verify_ot
 
 # Run P2 (Helper)
-./ot_extension_test p2 "$M" > p2.log 2>&1 &
+./ot_extension_test p2 "$M" > logs/p2.log 2>&1 &
 P2_PID=$!
 
 # Run P0 (Sender)
-./ot_extension_test p0 "$M" > p0.log 2>&1 &
+./ot_extension_test p0 "$M" > logs/p0.log 2>&1 &
 P0_PID=$!
 
 # Run P1 (Receiver)
-./ot_extension_test p1 "$M" > p1.log 2>&1
+./ot_extension_test p1 "$M" > logs/p1.log 2>&1
 P1_STATUS=$?
 
 # Cleanup background processes
@@ -39,7 +39,7 @@ if [ $P1_STATUS -eq 0 ]; then
         echo "OT Extension Test FAILED during verification"
     fi
 else
-    cat p1.log
+    cat logs/p1.log
     echo "OT Extension Test FAILED (Protocol Execution)"
 fi
 
